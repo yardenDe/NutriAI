@@ -45,3 +45,10 @@ async def get_supplement(slug: str):
         if sup.slug == slug:
             return sup.to_dict()
     return {"error": "not found"}
+
+
+DB.append(Supplement("vitamin-c", "Vitamin C", ["immune", "antioxidant"]))
+DB.append(Supplement("omega-3", "Omega 3", ["heart", "brain"]))
+DB.append(Supplement("magnesium", "Magnesium", ["muscle", "sleep"]))
+
+
