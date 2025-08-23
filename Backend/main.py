@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Body
+import psycopg2
+from openai import OpenAI
 
 app = FastAPI()
 
