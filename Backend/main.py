@@ -1,26 +1,19 @@
 from fastapi import FastAPI, Body
 import psycopg2
-from openai import OpenAI
 import pandas as pd
 import os
+import random
 from dotenv import load_dotenv
 
 # 1. Load environment variables (e.g. API keys) from .env
 load_dotenv()
 
-# Initialize OpenAI client using API key
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+EMBEDDING_DIM = 1536
 
 def to_embedded(desc: str):
-    """
-    Generate an embedding vector for a given text description
-    using OpenAI's embeddings API.
-    """
-    response = client.embeddings.create(
-        model="text-embedding-3-small",  # 1536-dim embeddings model
-        input=desc
-    )
-    return response.data[0].embedding
+    emb =  [random.uniform(-1.0, 1.0) for _ in range(EMBEDDING_DIM)]
+    return "[" + ",".join(map(str, emb)) + "]"
+
 
 # 2. Load the CSV file with supplements data
 csv_path = r"C:\Users\User\Personal_Projects\NutriAI\SQL\supplements_tamp.csv"
@@ -32,16 +25,33 @@ if not os.path.exists(csv_path):
 data = pd.read_csv(csv_path)
 print(f"Read {len(data)} rows from CSV file successfully")
 
+def connect_to_db():
+    try:
+        conn = psycopg2.connect(
+            dbname="postgres",                   
+            user="postgres",                    
+            password=os.getenv("SUPABASE_PASSWORD"),
+            host="db.ailnvqajkzfxdeipdvdy.supabase.co",
+            port="5432",
+            sslmode="require"
+        )
+        return conn
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        raise
+    
+def disconnect_from_db(conn, cur):
+    try:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()        
+    except Exception as e:
+        print(f"Failed to close connection: {e}")
+        raise
 
-# 3. Connect to Supabase (Postgres database)
-conn = psycopg2.connect(
-    dbname="postgres",                   
-    user="postgres",                    
-    password= os.getenv("SUPABASE_PASSWORD") ,   
-    host="db.ailnvqajkzfxdeipdvdy.supabase.co",     
-    port="5432",
-    sslmode="require"
-)
+
+conn = connect_to_db()
 cur = conn.cursor()
 
 # 4. Insert data row-by-row into the database
@@ -61,9 +71,7 @@ for idx, row in data.iterrows():
 
 # Commit changes and close the connection
 conn.commit()
-cur.close()
-conn.close()
-
+disconnect_from_db( conn, cur)
 print("All supplements inserted with embeddings!")
 
 # 5. FastAPI application (demo endpoints)
