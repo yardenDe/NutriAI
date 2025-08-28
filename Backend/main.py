@@ -37,7 +37,7 @@ print(f"Read {len(data)} rows from CSV file successfully")
 conn = psycopg2.connect(
     dbname="postgres",                   
     user="postgres",                    
-    password= os.getenv("SUPABASE_PASSWORS") ,   
+    password= os.getenv("SUPABASE_PASSWORD") ,   
     host="db.ailnvqajkzfxdeipdvdy.supabase.co",     
     port="5432",
     sslmode="require"
