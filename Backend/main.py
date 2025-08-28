@@ -1,11 +1,10 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Query
 import psycopg2
 import pandas as pd
 import os
 import random
 from dotenv import load_dotenv
 
-# 1. Load environment variables (e.g. API keys) from .env
 load_dotenv()
 
 EMBEDDING_DIM = 1536
@@ -15,7 +14,6 @@ def to_embedded(desc: str):
     return "[" + ",".join(map(str, emb)) + "]"
 
 
-# 2. Load the CSV file with supplements data
 csv_path = r"C:\Users\User\Personal_Projects\NutriAI\SQL\supplements_tamp.csv"
 
 if not os.path.exists(csv_path):
@@ -54,7 +52,6 @@ def disconnect_from_db(conn, cur):
 conn = connect_to_db()
 cur = conn.cursor()
 
-# 4. Insert data row-by-row into the database
 for idx, row in data.iterrows():
     name = row["name"]
     desc = row["description"] 
@@ -74,68 +71,60 @@ conn.commit()
 disconnect_from_db( conn, cur)
 print("All supplements inserted with embeddings!")
 
-# 5. FastAPI application (demo endpoints)
+
+def recommend_similar_supplements(goal: str, top_n: int = 5):
+    conn = connect_to_db()
+    cur = conn.cursor()
+    embedded_goal = to_embedded(goal)
+    try:
+        cur.execute(
+           "SELECT * FROM find_supplements(%s, %s);",
+            (embedded_goal, top_n)
+        )
+        results = cur.fetchall()
+        return results
+    except Exception as e:
+        print(f"Error during recommendation: {e}")
+        return []
+    finally:
+        disconnect_from_db(conn, cur)
+
+
+# FastAPI app
 app = FastAPI()
 
-# Temporary in-memory database for demo
-DB = []
-
-class Supplement:
-    """
-    A simple Supplement class to simulate supplement objects
-    stored in memory for the FastAPI demo endpoints.
-    """
-    def __init__(self, slug: str, name: str, goals: list[str] = None):
-        self.slug = slug
-        self.name = name
-        self.goals = goals if goals is not None else []
-
-    def to_dict(self):
-        """Convert the Supplement object into a serializable dict"""
-        return {
-            "slug": self.slug,
-            "name": self.name,
-            "goals": self.goals,
-        }
-
-@app.get("/")
-async def root():
-    """Root endpoint that returns basic info"""
-    return {"ok": True, "count": len(DB)}
+@app.get("/recommendations")
+async def recommendations(symptoms: list[str] = Query(None)):
+    """Get supplement recommendations based on user symptoms/goals"""
+    if not symptoms:
+        return {"error": "No symptoms provided"}
+    
+    all_symptoms = " ".join(symptoms)
+    recs = recommend_similar_supplements(all_symptoms)
+    return {"recommendations": recs}
 
 @app.get("/supplements")
 async def list_supplements():
-    """Return a list of all supplements (from in-memory DB)"""
-    return [sup.to_dict() for sup in DB]
+    """Return all supplements in the database"""
+    conn = connect_to_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT name, description FROM supplements;")
+        results = cur.fetchall()
+        return [{"name": r[0], "description": r[1]} for r in results]
+    finally:
+        disconnect_from_db(conn, cur)
 
-@app.post("/supplements")
-async def add_supplement(data: dict = Body(...)):
-    """
-    Add a new supplement to the in-memory DB.
-    Requires: slug, name, goals (optional).
-    """
-    slug = data.get("slug")
-    name = data.get("name", "")
-    goals = data.get("goals", [])
-    if not slug:
-        return {"error": "slug is required"}
-    for sup in DB:
-        if sup.slug == slug:
-            return {"error": "slug already exists"}
-    supplement = Supplement(slug, name, goals)
-    DB.append(supplement)
-    return supplement.to_dict()
-
-@app.get("/supplements/{slug}")
-async def get_supplement(slug: str):
-    """Retrieve a supplement by its slug"""
-    for sup in DB:
-        if sup.slug == slug:
-            return sup.to_dict()
-    return {"error": "not found"}
-
-# Demo data 
-DB.append(Supplement("vitamin-c", "Vitamin C", ["immune", "antioxidant"]))
-DB.append(Supplement("omega-3", "Omega 3", ["heart", "brain"]))
-DB.append(Supplement("magnesium", "Magnesium", ["muscle", "sleep"]))
-
+@app.get("/supplements/{name}")
+async def get_supplement(name: str):
+    """Retrieve a supplement by name"""
+    conn = connect_to_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT name, description FROM supplements WHERE name = %s;", (name,))
+        result = cur.fetchone()
+        if result:
+            return {"name": result[0], "description": result[1]}
+        return {"error": "Supplement not found"}
+    finally:
+        disconnect_from_db(conn, cur)
