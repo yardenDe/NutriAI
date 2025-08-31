@@ -3,25 +3,28 @@ import pandas as pd
 import os
 import random
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+
 
 load_dotenv()
 
-EMBEDDING_DIM = 1536
 CSV_PATH = r"C:\Users\User\Personal_Projects\NutriAI\SQL\supplements_tamp.csv"
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
 
 def to_embedded(desc: str):
-    emb = [random.uniform(-1.0, 1.0) for _ in range(EMBEDDING_DIM)]
-    return "[" + ",".join(map(str, emb)) + "]"
+    emb = model.encode(desc)
+    return model.encode(desc).tolist()
 
 def connect_to_db():
     try:
         conn = psycopg2.connect(
-            dbname="postgres",                   
-            user="postgres",                    
-            password=os.getenv("SUPABASE_PASSWORD"),
-            host="db.ailnvqajkzfxdeipdvdy.supabase.co",
-            port="5432",
-            sslmode="require"
+            dbname ="postgres",                   
+            user ="postgres",                    
+            password = os.getenv("SUPABASE_PASSWORD"),
+            host = "db.ailnvqajkzfxdeipdvdy.supabase.co",
+            port = "5432",
+            sslmode = "require"
         )
         return conn
     except Exception as e:
