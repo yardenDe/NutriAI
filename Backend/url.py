@@ -1,7 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import os
+import zipfile        
 
 BASE_URL = "https://www.canada.ca"
 PAGE_URL = "https://www.canada.ca/en/health-canada/services/drugs-health-products/natural-non-prescription/applications-submissions/product-licensing/licensed-natural-health-product-database-data-extract.html"
@@ -12,16 +13,16 @@ STEM = [
     "NHP_NONMEDICINAL_INGREDIENTS"
 ]
 EXT = ".zip"
-OUTPUT_DIR = "sup_data"
+OUTPUT_DIR_NAME = "sup_data"
 
-def create_path(OUTPUT_DIR):
-    path = os.path.join(os.getcwd(), OUTPUT_DIR)
+def create_path(dir_name: str) -> str:
+    path = os.path.join(os.getcwd(), dir_name)
     os.makedirs(path, exist_ok=True)
     return path
 
-def get_filename_from_url(file_url):
-    parts = file_url.split("/")
-    return parts[-1]
+def get_filename_from_url(file_url: str) -> str:
+    return os.path.basename(urlparse(file_url).path)
+    
 
 def find_links_generator(soup):
     links = soup.find_all("a", href=True)
@@ -31,16 +32,33 @@ def find_links_generator(soup):
             full_url = urljoin(BASE_URL, href)
             yield full_url
 
-def download_file(file_url, output_dir):
-    pass
+def download_file(full_url: str, output_dir: str) -> str:
+    filename = get_filename_from_url(full_url)
+    output_file = os.path.join(output_dir, filename)
+
+    response = requests.get(full_url)
+    response.raise_for_status()
+
+    with open(output_file, "wb") as f:
+        f.write(response.content)
+
+    print(f" Saved: {output_file}")
+    return output_file
+
 
 if __name__ == "__main__":
-        
-    response = requests.get(PAGE_URL)
-    soup = BeautifulSoup(response.text, "html.parser")
-    
-    for full_link in find_links_generator(soup):
-        print(full_link)
+    output_dir = create_path(OUTPUT_DIR_NAME)
 
-    create_path(OUTPUT_DIR)
-    
+    response = requests.get(PAGE_URL)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    for full_link in find_links_generator(soup):
+        OUTPUT_FILE = download_file(full_link, output_dir)
+
+        with zipfile.ZipFile(OUTPUT_FILE, 'r') as zip_ref:
+            zip_ref.extractall(output_dir)   
+        
+        os.remove(OUTPUT_FILE)  # Optionally remove the zip file after extraction
+
+
