@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query
 from db import recommend_similar_supplements, connect_to_db, disconnect_from_db
 
 def setup_routes(app: FastAPI):
+    
     @app.get("/recommendations")
     async def recommendations(symptoms: list[str] = Query(None)):
         if not symptoms:
