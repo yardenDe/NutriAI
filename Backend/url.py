@@ -1,8 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 import os
-import zipfile        
+import zipfile    
+from file_parser import merge_products_purposes
 
 BASE_URL = "https://www.canada.ca"
 PAGE_URL = "https://www.canada.ca/en/health-canada/services/drugs-health-products/natural-non-prescription/applications-submissions/product-licensing/licensed-natural-health-product-database-data-extract.html"
@@ -13,16 +15,9 @@ STEM = [
     "NHP_NONMEDICINAL_INGREDIENTS"
 ]
 EXT = ".zip"
-OUTPUT_DIR_NAME = "sup_data"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "DataBase"
 
-def create_path(dir_name: str) -> str:
-    path = os.path.join(os.getcwd(), dir_name)
-    os.makedirs(path, exist_ok=True)
-    return path
 
-def get_filename_from_url(file_url: str) -> str:
-    return os.path.basename(urlparse(file_url).path)
-    
 
 def find_links_generator(soup):
     links = soup.find_all("a", href=True)
@@ -33,7 +28,7 @@ def find_links_generator(soup):
             yield full_url
 
 def download_file(full_url: str, output_dir: str) -> str:
-    filename = get_filename_from_url(full_url)
+    filename = Path(urlparse(full_url).path).name
     output_file = os.path.join(output_dir, filename)
 
     response = requests.get(full_url)
@@ -45,20 +40,23 @@ def download_file(full_url: str, output_dir: str) -> str:
     print(f" Saved: {output_file}")
     return output_file
 
-
-if __name__ == "__main__":
-    output_dir = create_path(OUTPUT_DIR_NAME)
-
+def download_all():
     response = requests.get(PAGE_URL)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
 
     for full_link in find_links_generator(soup):
-        OUTPUT_FILE = download_file(full_link, output_dir)
+        output_file = download_file(full_link, OUTPUT_DIR)
 
-        with zipfile.ZipFile(OUTPUT_FILE, 'r') as zip_ref:
-            zip_ref.extractall(output_dir)   
+        with zipfile.ZipFile(output_file, 'r') as zip_ref:
+            zip_ref.extractall(OUTPUT_DIR)   
         
-        os.remove(OUTPUT_FILE)  # Optionally remove the zip file after extraction
+        os.remove(output_file)
 
+    merge_products_purposes()
+
+
+if __name__ == "__main__":
+    
+    download_all()
 

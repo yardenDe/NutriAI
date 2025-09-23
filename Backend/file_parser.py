@@ -12,6 +12,7 @@ def save_df(df: pd.DataFrame, p: Path):
 
 def parse(input_path: Path, output_path: Path) -> pd.DataFrame:
     if not input_path.exists():
+        print(input_path)
         raise FileNotFoundError(f"File not found: {input_path}")
     print(f"Loading data from: {input_path}")
     df = read_df(input_path)
@@ -20,8 +21,8 @@ def parse(input_path: Path, output_path: Path) -> pd.DataFrame:
     save_df(df, output_path)
     return df
 
-if __name__ == "__main__":
-    base = Path("sup_data")
+def merge_products_purposes():
+    base = Path(__file__).resolve().parent.parent / "DataBase"
 
     products_df = parse(base/"NHP_PRODUCTS.txt",         base/"NHP_PRODUCTS.csv")
     purposes_df = parse(base/"NHP_PRODUCTS_PURPOSE.txt", base/"NHP_PRODUCTS_PURPOSE.csv")

@@ -1,15 +1,21 @@
 import psycopg2
 import pandas as pd
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 
 load_dotenv()
 
-CSV_PATH = r"C:\Users\User\Personal_Projects\NutriAI\SQL\products_with_purpose.csv"
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
+def get_cvs_path(filename: str = "products_with_purpose.csv") -> Path:
+    base_path = Path(__file__).resolve().parent.parent
+    CSV_PATH = base_path / "DataBase" / filename
+    if not os.path.exists(CSV_PATH):
+        raise FileNotFoundError(f"File not found in path: {CSV_PATH}")
+    return CSV_PATH
 
 def to_embedded(desc: str):
     emb_list = model.encode(desc).tolist()
@@ -40,8 +46,7 @@ def disconnect_from_db(conn, cur):
         raise
 
 def insert_supplements_from_csv():
-    if not os.path.exists(CSV_PATH):
-        raise FileNotFoundError(f"File not found in path: {CSV_PATH}")
+    CSV_PATH = get_cvs_path()
     
     data = pd.read_csv(CSV_PATH)
     sample = data.sample(n = 250).reset_index(drop=True)
