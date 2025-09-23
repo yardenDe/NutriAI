@@ -1,7 +1,20 @@
 from fastapi import FastAPI, Query
+from pydantic import BaseModel
 from db import recommend_similar_supplements, connect_to_db, disconnect_from_db
+from chat import get_answer
 
 def setup_routes(app: FastAPI):
+    
+    class ChatRequest(BaseModel):
+        query: str
+
+    class ChatResponse(BaseModel):
+        answer: str
+
+    @app.post("/chat", response_model=ChatResponse)
+    async def chat(req: ChatRequest):
+        ans = get_answer(req.query)
+        return ChatResponse(answer=ans)
     
     @app.get("/recommendations")
     async def recommendations(symptoms: list[str] = Query(None)):
