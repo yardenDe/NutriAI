@@ -33,26 +33,35 @@ def ask_llm(query: str) -> dict:
     """
 
     with llm.chat_session():
-        answer = llm.generate(prompt, max_tokens=200, temp=0.5).strip()
+        answer = llm.generate(prompt, max_tokens=200, temp=0.5)
 
     return extract_json(answer)
 
-def ans_llm(query: str, ans: str) -> dict:
+def ans_llm(query: str, ans: str, history: list[str] | None = None) -> str:
+    history_text = ""
+    if history:
+        history_text = "\nConversation so far:\n"
+        for h in history:
+            history_text += f"{h}\n"
 
     prompt = f"""
-    The user asked: "{query}"
-    We searched our supplement database and found the following relevant results: {ans}
-    Task:
-    - Write a short, user-friendly answer in simple language.
-    - Summarize the supplements in a clear way.
-    - Do not invent information that is not in the results.
-    """
+{history_text}
+User: {query}
+System: We searched our supplement database and found the following relevant results: {ans}
+
+Task:
+- Write a short, user-friendly answer in simple language.
+- Summarize the supplements in a clear way.
+- Do not invent information that is not in the results.
+Assistant:
+"""
     with llm.chat_session():
-        answer = llm.generate(prompt, max_tokens=200, temp=0.5)
+        answer = llm.generate(prompt, max_tokens=200, temp=0.5).strip()
 
     return answer
 
-def get_answer(query: str) -> str:
+
+def get_answer(query: str, history: list[str] | None = None) -> str:
     symptoms_json = ask_llm(query)
     symptoms = symptoms_json.get("symptoms", [])
     if not symptoms:
@@ -62,20 +71,25 @@ def get_answer(query: str) -> str:
     if not db_results:
         return "Sorry, I couldn't find any supplements related to your symptoms."
 
-    #ans = json.dumps(db_results)
-    final_answer = ans_llm(query, db_results)
-    return final_answer
+    ans = ans_llm(query, db_results, history)
+    return ans
 
 if __name__ == "__main__":
     print("LLaMA 2–7B loaded successfully")
     print("Type 'x' to exit.")
+    history = []
     while True:
         query = input("\nYou: ")
         if query.lower() == "x":
             break
 
-        result = get_answer(query)
-        print("Extracted:", result)
+        print("Current history:", history)
+
+        result = get_answer(query, history)
+        print("Assistant:", result)
+
+        history.append(f"User: {query}")
+        history.append(f"Assistant: {result}")
         
 
 

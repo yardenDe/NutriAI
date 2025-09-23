@@ -5,17 +5,31 @@ from chat import get_answer
 
 def setup_routes(app: FastAPI):
     
+    sessions = {}
+
     class ChatRequest(BaseModel):
-        query: str
+        session_id: str
+        text: str
 
     class ChatResponse(BaseModel):
         answer: str
 
+    def process_message(session_id: str, user_text: str) -> str:
+        if session_id not in sessions:
+            sessions[session_id] = []
+
+        sessions[session_id].append({"role": "user", "content": user_text})
+        history = [f"{m['role'].capitalize()}: {m['content']}" for m in sessions[session_id]]
+        answer = get_answer(user_text, history)
+        sessions[session_id].append({"role": "assistant", "content": answer})
+
+        return answer
+
     @app.post("/chat", response_model=ChatResponse)
     async def chat(req: ChatRequest):
-        ans = get_answer(req.query)
+        ans = process_message(req.session_id, req.text)
         return ChatResponse(answer=ans)
-    
+
     @app.get("/recommendations")
     async def recommendations(symptoms: list[str] = Query(None)):
         if not symptoms:
