@@ -81,9 +81,3 @@ main – stable release
 local-llm – full integration with local LLaMA-2
 
 Created by @yardenDe
-
-רוצה שאעדכן לך גם גרסה של **`.env.example`** שתתאים לזה (כדי שתוכל פשוט להעתיק ולהשתמש בה)?
-
-
-
-
