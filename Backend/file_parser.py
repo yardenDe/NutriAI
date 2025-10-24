@@ -10,6 +10,7 @@ def read_df(p: Path) -> pd.DataFrame:
 def save_df(df: pd.DataFrame, p: Path):
     df.to_csv(p, index=False)   
 
+# Converts a text file into a CSV file and returns it as a pandas DataFrame
 def parse(input_path: Path, output_path: Path) -> pd.DataFrame:
     if not input_path.exists():
         print(input_path)

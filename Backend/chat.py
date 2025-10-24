@@ -45,16 +45,16 @@ def ans_llm(query: str, ans: str, history: list[str] | None = None) -> str:
             history_text += f"{h}\n"
 
     prompt = f"""
-{history_text}
-User: {query}
-System: We searched our supplement database and found the following relevant results: {ans}
+    {history_text}
+    User: {query}
+    System: We searched our supplement database and found the following relevant results: {ans}
 
-Task:
-- Write a short, user-friendly answer in simple language.
-- Summarize the supplements in a clear way.
-- Do not invent information that is not in the results.
-Assistant:
-"""
+    Task:
+    - Write a short, user-friendly answer in simple language.
+    - Summarize the supplements in a clear way.
+    - Do not invent information that is not in the results.
+    Assistant:
+    """
     with llm.chat_session():
         answer = llm.generate(prompt, max_tokens=200, temp=0.5).strip()
 
