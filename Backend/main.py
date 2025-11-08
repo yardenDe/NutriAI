@@ -1,11 +1,20 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from db import insert_supplements_from_csv
 from api import setup_routes
 import uvicorn
 import argparse
-# from pull_data import build_dsld_uses_json
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 setup_routes(app)
 
 if __name__ == "__main__":

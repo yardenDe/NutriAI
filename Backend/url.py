@@ -56,7 +56,3 @@ def download_all():
     merge_products_purposes()
 
 
-if __name__ == "__main__":
-    
-    download_all()
-
