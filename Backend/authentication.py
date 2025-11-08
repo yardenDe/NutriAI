@@ -7,26 +7,31 @@ def setup_user_routes(app: FastAPI):
     NEXT_ID = 1
 
     class UserRequest(BaseModel):
-        uniqe_name: str
+        unique_name: str
         password: str
 
     @app.post("/register")
     async def register(req: UserRequest):
+        print("Request body:", req)
+
         nonlocal NEXT_ID
-        if req.uniqe_name in DB:
+        if req.unique_name in DB:
             raise HTTPException(status_code=400, detail="User exists")
-        DB[req.uniqe_name] = {"id": NEXT_ID, "password": req.password}
+        DB[req.unique_name] = {"id": NEXT_ID, "password": req.password}
         NEXT_ID += 1
         return {"status": "ok"}
 
     @app.post("/login")
     async def login(req: UserRequest):
-        if req.uniqe_name not in DB or DB[req.uniqe_name]["password"] != req.password:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+        if req.unique_name not in DB:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        user_id = DB[req.uniqe_name]["id"]
-        token = generate_token(user_id, req.uniqe_name)
-        return {"token": token}
+        if DB[req.unique_name]["password"] != req.password:
+            raise HTTPException(status_code=401, detail="Invalid password")
+
+        user_id = DB[req.unique_name]["id"]
+        token = generate_token(user_id, req.unique_name)
+        return {"status": "ok", "token": token}
 
     @app.get("/user")
     async def get_user(payload: dict = Depends(verify_token)):
