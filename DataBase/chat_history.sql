@@ -38,10 +38,33 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT role, content, created_at
-    FROM chat_history
-    WHERE user_id = p_user_id
-    ORDER BY created_at DESC
+    SELECT 
+        h.role,
+        h.content,
+        h.created_at
+    FROM chat_history h
+    WHERE h.user_id = p_user_id
+    ORDER BY h.created_at DESC
     LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Counts how many new messages exist after last summary time
+CREATE OR REPLACE FUNCTION count_new_messages(
+    p_user_id INT,
+    p_last_time TIMESTAMP
+)
+RETURNS INT AS $$
+DECLARE
+    c INT;
+BEGIN
+    SELECT COUNT(*) INTO c
+    FROM chat_history
+    WHERE user_id = p_user_id
+      AND created_at > p_last_time;
+
+    RETURN c;
+END;
+$$ LANGUAGE plpgsql;
+

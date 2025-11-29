@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
-from jwt_handler import generate_token, verify_token  
+from jwt_handler import generate_token, verify_token
+from db import add_user, authenticate_user
 
 def setup_user_routes(app: FastAPI):
-    DB = {}
-    NEXT_ID = 1
 
     class UserRequest(BaseModel):
         unique_name: str
@@ -12,24 +11,21 @@ def setup_user_routes(app: FastAPI):
 
     @app.post("/register")
     async def register(req: UserRequest):
-        print("Request body:", req)
 
-        nonlocal NEXT_ID
-        if req.unique_name in DB:
-            raise HTTPException(status_code=400, detail="User exists")
-        DB[req.unique_name] = {"id": NEXT_ID, "password": req.password}
-        NEXT_ID += 1
+        user_id = add_user(req.unique_name, req.password)
+        if user_id is None:
+            raise HTTPException(status_code=400, detail="User already exists")
+
         return {"status": "ok"}
 
     @app.post("/login")
     async def login(req: UserRequest):
-        if req.unique_name not in DB:
-            raise HTTPException(status_code=404, detail="User not found")
 
-        if DB[req.unique_name]["password"] != req.password:
-            raise HTTPException(status_code=401, detail="Invalid password")
+        user_id = authenticate_user(req.unique_name, req.password)
 
-        user_id = DB[req.unique_name]["id"]
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+
         token = generate_token(user_id, req.unique_name)
         return {"status": "ok", "token": token}
 

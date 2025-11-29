@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from url import download_all
 from db import insert_supplements_from_csv
 from api import setup_routes
+from authentication import setup_user_routes
 import uvicorn
 import argparse
 
@@ -16,6 +18,8 @@ app.add_middleware(
 )
 
 setup_routes(app)
+setup_user_routes(app) 
+
 
 if __name__ == "__main__":
     print   ("Starting NutriAI server...")
@@ -26,7 +30,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.get_url_data:
-        from url import download_all
         print("Downloading and extracting Health Canada data...")
         download_all()
     if args.load_data:

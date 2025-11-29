@@ -39,3 +39,20 @@ BEGIN
     RETURN s;  -- NULL if no summary exists
 END;
 $$ LANGUAGE plpgsql;
+
+-- Retrieves timestamp of last summary update
+-- Returns: timestamp (or NULL if no summary exists)
+CREATE OR REPLACE FUNCTION get_summary_time(
+    p_user_id INT
+)
+RETURNS TIMESTAMP AS $$
+DECLARE t TIMESTAMP;
+BEGIN
+    SELECT updated_at INTO t
+    FROM chat_summary
+    WHERE user_id = p_user_id;
+
+    RETURN t;
+END;
+$$ LANGUAGE plpgsql;
+

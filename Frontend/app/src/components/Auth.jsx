@@ -28,19 +28,21 @@ export default function Auth({ setUser }) {
         setMessage(isLogin ? "Login successful!" : "Registration successful!");
         setUser(username);
       } else {
-        // אם השרת החזיר משהו אחר (למשל {"status": "user exists"})
         setMessage(res.data.status || "Unexpected response");
       }
     } catch (err) {
       console.error("Error:", err);
 
-      // נבדוק אם לשרת הייתה תגובה תקינה עם detail
       if (err.response) {
         const serverMsg =
-          err.response.data?.detail || err.response.data?.status;
-        setMessage(serverMsg || `Error ${err.response.status}`);
+          err.response.data?.detail ||
+          err.response.data?.status ||
+          `Error ${err.response.status}`;
+        setMessage(serverMsg);
+      } else if (err.request) {
+        setMessage("No response from server. Check connection.");
       } else {
-        setMessage("Network or server error");
+        setMessage("Unexpected error occurred.");
       }
     }
   };

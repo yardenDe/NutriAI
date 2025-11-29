@@ -68,6 +68,31 @@ def get_answer(query: str, history: list[str] | None = None) -> str:
     ans = ans_gemini(query, db_results, history)
     return ans
 
+
+def summarize_conversation(text: str) -> str:
+    
+    chat = client.chats.create(model="gemini-2.0-flash")
+
+    prompt = f"""
+    You are a conversation summarizer.
+    Your task is to produce a short, clear summary of the user's messages.
+    
+    Rules:
+    - Focus only on the important points the user discussed.
+    - Be concise but keep all meaning.
+    - Do NOT add information that is not in the text.
+    - Output plain text only. No JSON.
+
+    Conversation:
+    {text}
+
+    Summary:
+    """
+
+    response = chat.send_message(prompt)
+    return response.text.strip()
+
+
 if __name__ == "__main__":
     print("Gemini Client loaded successfully")
     print("Type 'x' to exit.")
