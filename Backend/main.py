@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from url import download_all
-from db import insert_supplements_from_csv
-from api import setup_routes
-from authentication import setup_user_routes
+
+from chat_router import router as chat_router
+from user_router import router as user_router
+from supp_router import router as supp_router
+
 import uvicorn
 import argparse
 
@@ -17,8 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-setup_routes(app)
-setup_user_routes(app) 
+app.include_router(chat_router)
+app.include_router(user_router)
+app.include_router(supp_router)
 
 
 if __name__ == "__main__":
@@ -34,6 +37,6 @@ if __name__ == "__main__":
         download_all()
     if args.load_data:
         print("Loading supplements data into the database...")
-        insert_supplements_from_csv()
+        # insert_supplements_from_csv()
 
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
