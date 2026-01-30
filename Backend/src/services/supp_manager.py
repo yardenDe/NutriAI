@@ -1,9 +1,11 @@
-from src.db_repo.supp_repo import SuppRepo
+from src.repositories.supp_repo import SuppRepo
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 import os
+import numpy as np
 
-class SupplementManager:
+
+class SuppManager:
     def __init__(self):
         self.repo = SuppRepo()
 
@@ -18,13 +20,18 @@ class SupplementManager:
 
     def get_recommendations(self, symptoms: list[str]):
         query_text = " ".join(symptoms)
-        emb_list = self.model.encode(query_text).tolist()
-        embedded_goal = "[" + ",".join(str(x) for x in emb_list) + "]"
-        return self.repo.find_similar(embedded_goal, top_n=5)
+
+        embedding: np.ndarray = self.model.encode(query_text)
+        embedding_for_db = embedding.tolist()
+
+        return self.repo.get_by_similarity(
+            embedding_for_db,
+            top_n=5
+        )
 
     def list_all(self):
         return self.repo.get_all()
 
     def get_one(self, name: str):
-        results = self.repo.get_by_name(name)
-        return results[0] if results else None
+        return self.repo.get_by_name(name)
+    

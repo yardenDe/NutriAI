@@ -1,18 +1,45 @@
-from app.repositories.user_repo import UserRepo
+from sqlalchemy.exc import IntegrityError, OperationalError
+
+from src.repositories.user_repo import UserRepo
+from src.services.errors import (
+    UserAlreadyExists,
+    InvalidCredentials,
+    DatabaseUnavailable,
+)
 
 class UserManager:
     def __init__(self, token_provider):
         self.repo = UserRepo()
-        self.auth = token_provider
+        self.token_provider = token_provider
 
-    def register_user(self, username, password):
-        user_id = self.repo.add_user(username, password)
-        return user_id
+    def register(self, username: str, password: str):
+        try:
+            self.repo.add_user(username, password)
+        except IntegrityError:
+            raise UserAlreadyExists()
+        except OperationalError:
+            raise DatabaseUnavailable()
 
-    def login_user(self, username, password):
-        user_id = self.repo.authenticate_user(username, password)
-        
-        if user_id:
-            token = self.auth.generate_token(user_id, username)
-            return token
-        return None
+        return {
+            "status": "ok",
+            "message": "User created successfully",
+        }
+
+    def login(self, username: str, password: str):
+        try:
+            user = self.repo.get_user(username)
+        except OperationalError:
+            raise DatabaseUnavailable()
+
+        if not user or user["password"] != password:
+            raise InvalidCredentials()
+
+        token = self.token_provider.generate_token(
+            user_id=user["id"],
+            user_name=username
+        )
+
+        return {
+            "status": "ok",
+            "token": token
+        }

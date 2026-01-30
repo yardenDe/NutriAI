@@ -1,4 +1,4 @@
-from src.db_repo.db_manager import DB_Manager
+from src.infrastructure.db_manager import DBManager
 from src.infrastructure.token_provider import TokenProvider
 
 db_connection = None
@@ -7,7 +7,7 @@ token_provider = None
 def get_db_manager():
     global db_connection
     if db_connection is None:
-        db_connection = DB_Manager() 
+        db_connection = DBManager() 
 
     return db_connection
 

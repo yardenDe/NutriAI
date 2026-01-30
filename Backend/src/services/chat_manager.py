@@ -1,4 +1,4 @@
-from src.db_repo.chat_repo import ChatRepo
+from src.repositories.chat_repo import ChatRepo
 from src.infrastructure.llm import generate_answer
 
 

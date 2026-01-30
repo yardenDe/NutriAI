@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from app.services.supp_manager import SuppManager
+from src.services.supp_manager import SuppManager
 
 router = APIRouter(prefix="/supplements")
 

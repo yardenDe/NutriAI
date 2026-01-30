@@ -2,27 +2,38 @@ from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 
-class DB_Manager:
-    """Handles any database interactions using SQLAlchemy."""
+
+class DBManager:
     def __init__(self):
         load_dotenv()
-        self.db_url = os.getenv("DATABASE_URL", "sqlite:///local.db")
-        self.engine = create_engine(self.db_url)
-       
-    def execute_query(self, query, params=None):
-        """Handles read-only queries"""
-        try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text(query), params)
-                return result
-        except Exception as e:
-            raise e
+        self.engine = create_engine(
+            os.getenv("DATABASE_URL", "sqlite:///local.db"),
+        )
 
-    def execute_transaction(self, query, params=None):
-        """Handles all queries"""
-        try:
-            with self.engine.begin() as conn:
-                return conn.execute(text(query), params)
-        except Exception as e:
-            raise e
-        
+    def fetch_all(self, query, params=None):
+        """
+        Execute a SELECT query and return all rows.
+        Returns:
+            list[dict]
+        """
+        with self.engine.connect() as conn:
+            result = conn.execute(text(query), params)
+            return result.mappings().all()
+
+    def fetch_one(self, query, params=None):
+        """
+        Execute a SELECT query and return the first row.
+        Returns:
+            dict | None
+        """
+        with self.engine.connect() as conn:
+            result = conn.execute(text(query), params)
+            return result.mappings().first()
+
+    def execute(self, query, params=None):
+        """
+        Execute an INSERT, UPDATE, or DELETE query.
+        Raises an exception if the operation fails.
+        """
+        with self.engine.begin() as conn:
+            conn.execute(text(query), params)
