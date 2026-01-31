@@ -1,47 +1,58 @@
-import logging
-from typing import List, Dict, Optional
-from src.dependencies import get_db_manager
-
-logger = logging.getLogger(__name__)
+from src.infrastructure.db_manager import DBManager
 
 class ChatRepo:
     def __init__(self):
-        self.db_manager = get_db_manager()
+        self.db = DBManager()
 
-    def add_chat_message(self, user_id: int, role: str, content: str):
-        query = "SELECT add_chat_message(:uid, :role, :content);"
-        params = {"uid": user_id, "role": role, "content": content}
-        self.db_manager.execute_transaction(query, params)
+    def get_summary(self, user_id: int):
+        query = """
+        SELECT summary
+        FROM chat_summaries
+        WHERE user_id = :user_id
+        """
+        params = {"user_id": user_id}
+        return self.db.fetch_one(query, params)
 
-    def get_last_messages(self, user_id: int, limit: int = 5) -> List[Dict]:
-        query = "SELECT * FROM get_last_messages(:uid, :limit);"
-        return self.db_manager.execute_query(query, {"uid": user_id, "limit": limit})
+    def save_summary(self, user_id: int, summary: str):
+        query = """
+        INSERT INTO chat_summary (user_id, summary, updated_at)
+        VALUES (:user_id, :summary, NOW())
+        ON CONFLICT (user_id)
+        DO UPDATE SET summary = EXCLUDED.summary, updated_at = NOW()
+        """
+        params = {"user_id": user_id, "summary": summary}
+        self.db.execute(query, params)
 
-    def get_chat_summary(self, user_id: int) -> Optional[str]:
-        query = "SELECT get_chat_summary(:uid);"
-        results = self.db_manager.execute_query(query, {"uid": user_id})
-        
-        if results:
-            return results[0].get('get_chat_summary')
-        return None
+    def get_last_messages(self, user_id: int, limit: int):
+        query = """
+        SELECT role, content
+        FROM chat_messages
+        WHERE user_id = :user_id
+        ORDER BY created_at DESC
+        LIMIT :limit
+        """
+        params = {"user_id": user_id, "limit": limit}
+        return self.db.fetch_all(query, params)
 
-    def update_chat_summary(self, user_id: int, summary: str):
-        query = "SELECT update_chat_summary(:uid, :summary);"
-        self.db_manager.execute_transaction(query, {"uid": user_id, "summary": summary})
+    def add_message(self, user_id: int, role: str, content: str):
+        query = """
+        INSERT INTO chat_messages (user_id, role, content)
+        VALUES (:user_id, :role, :content)
+        """
+        params = {
+            "user_id": user_id,
+            "role": role,
+            "content": content
+        }
+        self.db.execute(query, params)
 
-    def get_last_summary_time(self, user_id: int):
-        query = "SELECT get_summary_time(:uid);"
-        results = self.db_manager.execute_query(query, {"uid": user_id})
-        
-        if results:
-            return results[0].get('get_summary_time')
-        return None
-
-    def count_new_messages(self, user_id: int, last_summary_time) -> int:
-        query = "SELECT count_new_messages(:uid, :lst);"
-        params = {"uid": user_id, "lst": last_summary_time}
-        results = self.db_manager.execute_query(query, params)
-        
-        if results:
-            return results[0].get('count_new_messages', 0)
-        return 0
+    def count_messages_after(self, user_id: int, since):
+        query = """
+        SELECT COUNT(*) as c
+        FROM chat_history
+        WHERE user_id = :user_id
+        AND created_at > :since
+        """
+        params = {"user_id": user_id, "since": since}
+        row = self.db.fetch_one(query, params)
+        return row["c"]

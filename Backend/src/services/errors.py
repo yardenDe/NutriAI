@@ -6,3 +6,19 @@ class InvalidCredentials(Exception):
 
 class DatabaseUnavailable(Exception):
     pass
+
+
+class InvalidInput(Exception):
+    pass
+
+class EmbeddingError(Exception):
+    pass
+
+class SupplementNotFound(Exception):
+    pass
+
+class LLMUnavailable(Exception):
+    pass
+
+
+

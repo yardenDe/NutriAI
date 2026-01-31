@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.dependencies import get_token_provider
 from src.services.user_manager import UserManager
 from src.services.errors import (
     UserAlreadyExists,
@@ -11,8 +10,7 @@ from src.services.errors import (
 
 router = APIRouter(prefix="/users")
 
-token_provider = get_token_provider()
-manager = UserManager(token_provider)
+manager = UserManager()
 
 class UserRequest(BaseModel):
     username: str

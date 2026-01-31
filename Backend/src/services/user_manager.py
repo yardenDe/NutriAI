@@ -1,5 +1,6 @@
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from src.dependencies import get_token_provider
 from src.repositories.user_repo import UserRepo
 from src.services.errors import (
     UserAlreadyExists,
@@ -8,9 +9,9 @@ from src.services.errors import (
 )
 
 class UserManager:
-    def __init__(self, token_provider):
+    def __init__(self):
         self.repo = UserRepo()
-        self.token_provider = token_provider
+        self.token_provider = get_token_provider()
 
     def register(self, username: str, password: str):
         try:

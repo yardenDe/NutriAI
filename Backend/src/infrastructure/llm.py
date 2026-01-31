@@ -1,19 +1,6 @@
-import os
-from dotenv import load_dotenv
-from google import genai
+from src.dependencies import get_llm
 
-load_dotenv()
-
-def _get_client():
-    api_key = os.getenv("LLM_API_KEY")
-    if not api_key:
-        raise ValueError("LLM_API_KEY not found in environment")
-
-    model = os.getenv("LLM_MODEL", "gemini-2.0-flash")
-    client = genai.Client(api_key=api_key)
-    return client, model
-
-def _build_prompt(user_text: str, context: list[str]) -> str:
+def _build_prompt(input: str, context: list[str]) -> str:
     context_text = "\n".join(context) if context else "No prior context."
 
     return f"""
@@ -23,18 +10,16 @@ Conversation context:
 {context_text}
 
 User message:
-{user_text}
+{input}
 
 Assistant:
 """.strip()
 
-def generate_answer(user_text: str, context: list[str]) -> str:
-    """
-    Public API:
-    Send input to the LLM and return a text answer.
-    """
-    client, model = _get_client()
-    prompt = _build_prompt(user_text, context)
+
+def generate_answer(input: str, context: list[str]) -> str:
+    model, client = get_llm()
+
+    prompt = _build_prompt(input, context)
 
     chat = client.chats.create(model=model)
     response = chat.send_message(prompt)

@@ -1,37 +1,66 @@
+from sqlalchemy.exc import OperationalError
 from src.repositories.supp_repo import SuppRepo
-from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
-import os
+from src.dependencies import get_embedding_model
 import numpy as np
 
+from src.services.errors import (
+    InvalidInput,
+    EmbeddingError,
+    DatabaseUnavailable,
+    SupplementNotFound
+)
 
 class SuppManager:
     def __init__(self):
         self.repo = SuppRepo()
-
-        load_dotenv()
-
-        model_name = os.getenv(
-            "EMBEDDING_MODEL",
-            "all-MiniLM-L6-v2"
-        )
-
-        self.model = SentenceTransformer(model_name)
+        self.model = get_embedding_model()
 
     def get_recommendations(self, symptoms: list[str]):
+        if not symptoms:
+            raise InvalidInput()
+
         query_text = " ".join(symptoms)
+        try:
+            embedding: np.ndarray = self.model.encode(query_text)
+        except Exception as e:
+            raise EmbeddingError("Failed to generate embedding") from e
 
-        embedding: np.ndarray = self.model.encode(query_text)
         embedding_for_db = embedding.tolist()
+        try:
+            result = self.repo.get_by_similarity(embedding_for_db, top_n=5)
+        except OperationalError:
+            raise DatabaseUnavailable()
+        
+        return {
+            "status": "ok",
+            "data": result
+        }
 
-        return self.repo.get_by_similarity(
-            embedding_for_db,
-            top_n=5
-        )
 
     def list_all(self):
-        return self.repo.get_all()
+        try:
+            result = self.repo.get_all()
+        except OperationalError:
+            raise DatabaseUnavailable() 
+        
+        return {
+            "status": "ok",
+            "data": result
+        }
 
     def get_one(self, name: str):
-        return self.repo.get_by_name(name)
-    
+        if not name:
+            raise InvalidInput("Name is required")
+
+        try:
+            result = self.repo.get_by_name(name)
+        except OperationalError:
+            raise DatabaseUnavailable()
+
+        if not result:
+            raise SupplementNotFound()
+
+        return {
+            "status": "ok",
+            "data": result
+        }
