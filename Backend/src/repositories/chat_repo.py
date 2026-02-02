@@ -6,7 +6,7 @@ class ChatRepo:
 
     def get_summary(self, user_id: int):
         query = """
-        SELECT summary
+        SELECT summary, updated_at
         FROM chat_summaries
         WHERE user_id = :user_id
         """

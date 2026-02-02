@@ -1,11 +1,8 @@
 from sqlalchemy.exc import OperationalError
 from src.repositories.supp_repo import SuppRepo
-from src.dependencies import get_embedding_model
-import numpy as np
 
 from src.services.errors import (
     InvalidInput,
-    EmbeddingError,
     DatabaseUnavailable,
     SupplementNotFound
 )
@@ -13,29 +10,17 @@ from src.services.errors import (
 class SuppManager:
     def __init__(self):
         self.repo = SuppRepo()
-        self.model = get_embedding_model()
 
-    def get_recommendations(self, symptoms: list[str]):
-        if not symptoms:
-            raise InvalidInput()
+    def get_recommendations(self, embedded_symptoms: list[float]) ->list[dict]:
+        if not embedded_symptoms:
+            raise InvalidInput("Embedding is required")
 
-        query_text = " ".join(symptoms)
         try:
-            embedding: np.ndarray = self.model.encode(query_text)
-        except Exception as e:
-            raise EmbeddingError("Failed to generate embedding") from e
-
-        embedding_for_db = embedding.tolist()
-        try:
-            result = self.repo.get_by_similarity(embedding_for_db, top_n=5)
+            result = self.repo.similarity_search(embedded_symptoms, top_n=5)
         except OperationalError:
             raise DatabaseUnavailable()
         
-        return {
-            "status": "ok",
-            "data": result
-        }
-
+        return result
 
     def list_all(self):
         try:

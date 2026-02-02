@@ -4,7 +4,7 @@ class SuppRepo:
     def __init__(self):
         self.db_manager = get_db_manager()
 
-    def get_by_similarity(self, embedded_goal: str, top_n: int):
+    def similarity_search(self, embedded_goal: list[float], top_n: int)->list[dict]:
         query = """
         SELECT * 
         FROM find_supplements(cast(:goal as vector), :limit)
@@ -13,7 +13,7 @@ class SuppRepo:
         results = self.db_manager.fetch_all(query, params)
         return results
 
-    def get_all(self):
+    def get_all(self)->list[dict]:
         query = """
         SELECT name, description 
         FROM supplements;
@@ -21,7 +21,7 @@ class SuppRepo:
         results = self.db_manager.fetch_all(query)
         return results
 
-    def get_by_name(self, name: str):
+    def get_by_name(self, name: str)->dict:
         query = """
         SELECT name, description 
         FROM supplements 

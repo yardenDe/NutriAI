@@ -7,3 +7,4 @@ swark-output/
 Frontend/app/swark-output/
 *.bat
 **/__pycache__/
+witch demo-embeddings

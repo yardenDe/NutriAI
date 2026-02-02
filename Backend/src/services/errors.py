@@ -17,8 +17,7 @@ class EmbeddingError(Exception):
 class SupplementNotFound(Exception):
     pass
 
-class LLMUnavailable(Exception):
-    pass
+
 
 
 

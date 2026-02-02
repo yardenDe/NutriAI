@@ -1,16 +1,11 @@
 from sqlalchemy import create_engine, text
-import os
-from dotenv import load_dotenv
-
 
 class DBManager:
-    def __init__(self):
-        load_dotenv()
-        self.engine = create_engine(
-            os.getenv("DATABASE_URL", "sqlite:///local.db"),
-        )
+    def __init__(self, database_url):
+        self.engine = create_engine(database_url)
 
-    def fetch_all(self, query, params=None):
+
+    def fetch_all(self, query, params=None) -> list[dict]:
         """
         Execute a SELECT query and return all rows.
         Returns:
@@ -20,7 +15,7 @@ class DBManager:
             result = conn.execute(text(query), params)
             return result.mappings().all()
 
-    def fetch_one(self, query, params=None):
+    def fetch_one(self, query, params=None) -> dict:
         """
         Execute a SELECT query and return the first row.
         Returns:

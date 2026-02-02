@@ -1,84 +1,123 @@
+import logging
 from sqlalchemy.exc import OperationalError
+from src.services.rag_pipline import rag_pipeline
+from src.services.prompts import summarize_chat_history_prompt
 from src.repositories.chat_repo import ChatRepo
-from src.infrastructure.llm import generate_answer
-from src.services.errors import InvalidInput, DatabaseUnavailable, LLMUnavailable
+from src.dependencies import get_llm
+from src.services.errors import InvalidInput
 
-SUMMARY_THRESHOLD = 6
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+MAX_MESSAGES = 5
 
 class ChatManager:
     def __init__(self):
         self.repo = ChatRepo()
+        self.llm_service = get_llm()
 
-    def handle_message(self, user_id: int, text: str) -> dict:
-        if not text:
+    def handle_message(self, user_id: int, user_input: str) -> dict:
+        """
+        Main entry point for handling chat messages with multi-level fallback logic.
+        """
+        if not user_input or not user_input.strip():
             raise InvalidInput("Message cannot be empty")
 
+        summary, history, context = None, [], ""
+        db_alive = True
+
+        # Phase 1: Context Building & Persistence
         try:
-            summary: dict = self.repo.get_summary(user_id)
-            history: list[dict] = self.repo.get_last_messages(user_id, 5)
+            self.repo.add_message(user_id, "user", user_input)
+            summary = self.repo.get_summary(user_id)
+            history = self.repo.get_last_messages(user_id, 5)
+            context = self._build_context(summary, history)
         except OperationalError:
-            raise DatabaseUnavailable()
+            # If DB is down, mark it and proceed to fallback later
+            logger.error("Database unavailable during context building")
+            db_alive = False
 
-        context = []
-        if summary and summary["summary"]:
-            context.append(f"Summary: {summary['summary']}")
+        # Phase 2: RAG Pipeline execution (only if DB is accessible)
+        answer = None
+        if db_alive:
+            try:
+                answer = rag_pipeline(user_input, context)
+            except Exception as e:
+                logger.error(f"RAG pipeline failure: {e}")
 
-        for row in reversed(history):
-            context.append(f"{row['role'].capitalize()}: {row['content']}")
+        # Phase 3: Fallback logic if RAG failed, returned None, or DB is down
+        if not answer:
+            answer = self._handle_fallback(user_input, context, db_alive)
 
-        try:
-            self.repo.add_message(user_id, "user", text)
-        except OperationalError:
-            raise DatabaseUnavailable()
+        # Phase 4: Final DB persistence (save assistant response if possible)
+        if db_alive:
+            try:
+                self.repo.add_message(user_id, "assistant", answer)
+                self._update_summary_if_needed(user_id, summary)
+            except OperationalError:
+                logger.warning("Could not save assistant response due to DB error")
 
-        try:
-            answer = generate_answer(text, history)
-        except Exception as e:
-            raise LLMUnavailable() from e
+        return {
+            "status": "ok",
+            "answer": answer
+        }
 
-        try:
-            self.repo.add_message(user_id, "assistant", answer)
-            self.update_summary(user_id, summary)
-        except OperationalError:
-            raise DatabaseUnavailable()
+    def _handle_fallback(self, user_input: str, context: str, db_alive: bool) -> str:
+        """
+        Generates a fallback response based on the specific failure point.
+        Adds a relevant prefix to inform the user about the system status.
+        """
+        if not db_alive:
+            # Case 1: Database is completely unreachable
+            prefix = "[Note: Our database is currently offline. Answering without history or specific recommendations]\n\n"
+            prompt = f"User: {user_input}\nAssistant:"
+        
+        elif not context:
+            # Case 2: DB is alive but no chat history/context was found
+            prefix = "[Note: Answering without previous conversation context]\n\n"
+            prompt = f"User: {user_input}\nAssistant:"
+            
+        else:
+            # Case 3: DB and Context are fine, but RAG found no relevant supplements
+            prefix = "[Note: No specific supplements found in our database for this query. Providing a general response]\n\n"
+            prompt = f"Context: {context}\nUser: {user_input}\nAssistant:"
 
-        return {"status": "ok", "answer": answer}
+        # Generate the actual text from LLM
+        llm_response = self.llm_service.generate(prompt)
+        return f"{prefix}{llm_response}"
 
-    def update_summary(self, user_id, summary):
+    def _build_context(self, summary: dict, history: list) -> str:
+        """
+        Combines summary and recent history into a single string.
+        """
+        context_parts = []
+        if summary and summary.get("summary"):
+            context_parts.append(f"Summary: {summary['summary']}")
+        
+        for msg in reversed(history):
+            context_parts.append(f"{msg['role'].capitalize()}: {msg['content']}")
+            
+        return " ".join(context_parts)
+
+    def _update_summary_if_needed(self, user_id: int, summary: dict):
         if not summary:
-            self.summarize_and_save(user_id)
+            self._summarize_and_save(user_id)
             return
 
         new_count = self.repo.count_messages_after(user_id, summary["updated_at"])
-        if new_count >= SUMMARY_THRESHOLD:
-            self.summarize_and_save(user_id, new_count)
+        if new_count >= MAX_MESSAGES:
+            self._summarize_and_save(user_id)
 
-    def summarize_and_save(self, user_id, limit):
-        old_summary_row = self.repo.get_summary(user_id)
-        old_summary_text = old_summary_row["summary"] if old_summary_row else "No previous summary."
-
-        messages = self.repo.get_last_messages(user_id, limit)
-        
-        new_chat_text = "\n".join(
-            [f"{m['role']}: {m['content']}" for m in reversed(messages)]
-        )
-
-        prompt = f"""
-        You are an assistant updating a conversation summary.
-        
-        EXISTING SUMMARY:
-        {old_summary_text}
-        
-        NEW MESSAGES:
-        {new_chat_text}
-        
-        INSTRUCTION:
-        Create a new, concise summary that integrates the new messages into the existing summary. 
-        Keep it brief but ensure no key nutritional information is lost.
-        """
-
+    def _summarize_and_save(self, user_id: int):
         try:
-            new_summary = generate_answer(prompt, [])
+            summary = self.repo.get_summary(user_id)
+            old_summary = summary["summary"] if summary else "No previous summary."
+            
+            messages = self.repo.get_last_messages(user_id, MAX_MESSAGES)
+            chat_text = "\n".join(f"{m['role']}: {m['content']}" for m in reversed(messages))
+            
+            prompt = summarize_chat_history_prompt(old_summary, chat_text)
+            new_summary = self.llm_service.generate(prompt)
             self.repo.save_summary(user_id, new_summary)
-        except Exception:
-            pass 
+        except Exception as e:
+            logger.warning(f"Summary update failed for user {user_id}: {e}")
